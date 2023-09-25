@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
 	csvFilename := flag.String("csv", "problems.csv", "a csv file in the format of 'question,answer'")
+	timeLimit := flag.Int("limit", 30, "the time limit for the quiz in seconds")
 	flag.Parse()
+
 	file, err := os.Open(*csvFilename)
 	if err != nil {
 		exit(fmt.Sprintf("Failed to open the CSV file: %s\n", *csvFilename))
@@ -22,23 +25,35 @@ func main() {
 	}
 
 	problems := parseLines(lines)
+
+	timer := time.NewTimer(time.Duration(*timeLimit) * time.Second)
+
 	correct := 0
 	for i, p := range problems {
-		// TODO: create function to check if answer is correct
-		fmt.Printf("Problem #%d: %s = \n", i+1, p.question)
-		var answer string
-		_, err := fmt.Scanf("%s\n", &answer)
-		if err != nil {
-			exit(fmt.Sprintf("Failed to read the answer: %s\n", err))
-		}
-		if answer == p.answer {
-			correct++
-			fmt.Println("Correct!")
-		} else {
-			fmt.Println("Incorrect!")
+		select {
+		case <-timer.C:
+			fmt.Printf("You scored %d out of %d.\n", correct, len(problems))
+			return
+		default:
+			fmt.Printf("Problem #%d: %s = \n", i+1, p.question)
+			var answer string
+			_, err := fmt.Scanf("%s\n", &answer)
+			if err != nil {
+				exit(fmt.Sprintf("Failed to read the answer: %s\n", err))
+			}
+			if checkAnswer(answer, p.answer) {
+				correct++
+				fmt.Printf("Correct!\n")
+			} else {
+				fmt.Printf("Wrong answer! The correct answer is %s\n", p.answer)
+			}
 		}
 	}
 	fmt.Printf("You scored %d out of %d.\n", correct, len(problems))
+}
+
+func checkAnswer(answer string, correctAnswer string) bool {
+	return answer == correctAnswer
 }
 
 func parseLines(lines [][]string) []problem {
